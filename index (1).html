@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Credenciamento FEEMT</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #222;
+    }
+    .app {
+      width: min(100%, 560px);
+      margin: 0 auto;
+      padding: 18px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.08);
+    }
+    h1 {
+      margin: 0;
+      text-align: center;
+      font-size: 25px;
+    }
+    .subtitulo {
+      text-align: center;
+      color: #666;
+      margin: 7px 0 2px;
+      line-height: 1.4;
+    }
+    label {
+      display: block;
+      font-weight: 700;
+      margin: 16px 0 6px;
+    }
+    select, input {
+      width: 100%;
+      min-height: 50px;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #bbb;
+      border-radius: 9px;
+      background: #fff;
+    }
+    button {
+      width: 100%;
+      min-height: 52px;
+      border: 0;
+      border-radius: 9px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 13px;
+    }
+    button:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+    #btnCamera {
+      background: #1b5e20;
+      color: #fff;
+    }
+    #btnManual {
+      background: #333;
+      color: #fff;
+    }
+    #btnFechar {
+      background: #8b1a1a;
+      color: #fff;
+      display: none;
+    }
+    #cameraBox {
+      display: none;
+      margin-top: 14px;
+    }
+    #reader {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+    .ou {
+      text-align: center;
+      color: #777;
+      font-weight: 700;
+      margin: 20px 0 3px;
+    }
+    #resultado {
+      display: none;
+      text-align: center;
+      padding: 24px 14px;
+      border-radius: 12px;
+      margin-top: 16px;
+    }
+    .liberada {
+      display: block !important;
+      background: #d9ead3;
+      color: #274e13;
+      border: 2px solid #6aa84f;
+    }
+    .bloqueada {
+      display: block !important;
+      background: #f4cccc;
+      color: #990000;
+      border: 2px solid #cc0000;
+    }
+    .alerta {
+      display: block !important;
+      background: #fff2cc;
+      color: #7f6000;
+      border: 2px solid #bf9000;
+    }
+    .resultado-titulo {
+      font-size: 25px;
+      font-weight: 800;
+    }
+    .resultado-nome {
+      font-size: 21px;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+    .resultado-codigo {
+      margin-top: 6px;
+      font-size: 17px;
+    }
+    .resultado-detalhe {
+      margin-top: 10px;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+    .status {
+      margin-top: 10px;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <section class="card">
+      <h1>Credenciamento FEEMT</h1>
+      <div class="subtitulo">A ERA DA SENSIBILIDADE CRISTÃ</div>
+
+      <label for="periodo">Período atual</label>
+      <select id="periodo">
+        <option value="">Selecione o período</option>
+        <option value="20/11/2026 — Sexta-feira | 17h às 21h">Sexta-feira — 17h às 21h</option>
+        <option value="21/11/2026 — Sábado | 09h às 11h45">Sábado — 09h às 11h45</option>
+        <option value="21/11/2026 — Sábado | 14h às 19h">Sábado — 14h às 19h</option>
+      </select>
+
+      <label for="operador">Operador / Posto</label>
+      <input id="operador" type="text" placeholder="Ex.: Paula - Portaria 1" autocomplete="name">
+
+      <button id="btnCamera" type="button">📷 LER QR CODE</button>
+
+      <div id="cameraBox">
+        <div id="reader"></div>
+        <div class="status" id="statusCamera">Aponte a câmera para o QR Code.</div>
+      </div>
+
+      <button id="btnFechar" type="button">✕ FECHAR CÂMERA</button>
+
+      <div class="ou">OU DIGITE O CÓDIGO</div>
+
+      <label for="codigo">Código da inscrição</label>
+      <input id="codigo" type="text" placeholder="ERA2026-0002" autocomplete="off" autocapitalize="characters">
+
+      <button id="btnManual" type="button">VALIDAR ENTRADA</button>
+
+      <div id="resultado">
+        <div id="resultadoTitulo" class="resultado-titulo"></div>
+        <div id="resultadoNome" class="resultado-nome"></div>
+        <div id="resultadoCodigo" class="resultado-codigo"></div>
+        <div id="resultadoDetalhe" class="resultado-detalhe"></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+  const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzfc3-Ds-d2FnLF6Tb8KJF6Kkq2uRXReMaJeEHuL3XFbGAT8uQMf8XJo8rNlUd6UvCL/exec';
+
+  let leitor = null;
+  let cameraAtiva = false;
+  let processando = false;
+
+  const periodo = document.getElementById('periodo');
+  const operador = document.getElementById('operador');
+  const codigo = document.getElementById('codigo');
+  const btnCamera = document.getElementById('btnCamera');
+  const btnFechar = document.getElementById('btnFechar');
+  const btnManual = document.getElementById('btnManual');
+  const cameraBox = document.getElementById('cameraBox');
+  const statusCamera = document.getElementById('statusCamera');
+  const resultado = document.getElementById('resultado');
+  const resultadoTitulo = document.getElementById('resultadoTitulo');
+  const resultadoNome = document.getElementById('resultadoNome');
+  const resultadoCodigo = document.getElementById('resultadoCodigo');
+  const resultadoDetalhe = document.getElementById('resultadoDetalhe');
+
+  try {
+    operador.value = localStorage.getItem('feemt_operador') || '';
+    periodo.value = localStorage.getItem('feemt_periodo') || '';
+  } catch (_) {}
+
+  operador.addEventListener('change', () => {
+    try { localStorage.setItem('feemt_operador', operador.value.trim()); } catch (_) {}
+  });
+
+  periodo.addEventListener('change', () => {
+    try { localStorage.setItem('feemt_periodo', periodo.value); } catch (_) {}
+  });
+
+  btnCamera.addEventListener('click', iniciarCamera);
+  btnFechar.addEventListener('click', pararCamera);
+  btnManual.addEventListener('click', () => validar(codigo.value));
+
+  codigo.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      validar(codigo.value);
+    }
+  });
+
+  function dadosBasicosOk() {
+    if (!periodo.value) {
+      alert('Selecione o período atual.');
+      return false;
+    }
+    if (!operador.value.trim()) {
+      alert('Informe o operador ou posto.');
+      return false;
+    }
+    return true;
+  }
+
+  async function iniciarCamera() {
+    if (!dadosBasicosOk()) return;
+
+    if (typeof Html5Qrcode === 'undefined') {
+      mostrarErro('O leitor de QR Code não foi carregado. Verifique a conexão com a internet.');
+      return;
+    }
+
+    btnCamera.disabled = true;
+    cameraBox.style.display = 'block';
+    btnFechar.style.display = 'block';
+    statusCamera.textContent = 'Abrindo câmera...';
+
+    try {
+      leitor = new Html5Qrcode('reader');
+      await leitor.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
+        },
+        async (texto) => {
+          if (processando) return;
+          processando = true;
+          codigo.value = String(texto || '').trim();
+          try {
+            await pararCamera();
+          } finally {
+            validar(codigo.value);
+          }
+        },
+        () => {}
+      );
+
+      cameraAtiva = true;
+      statusCamera.textContent = 'Aponte a câmera para o QR Code.';
+    } catch (erro) {
+      cameraAtiva = false;
+      leitor = null;
+      btnCamera.disabled = false;
+      btnFechar.style.display = 'none';
+      cameraBox.style.display = 'none';
+      mostrarErro('Não foi possível abrir a câmera: ' + (erro && erro.message ? erro.message : erro));
+    }
+  }
+
+  async function pararCamera() {
+    try {
+      if (leitor && cameraAtiva) {
+        await leitor.stop();
+        await leitor.clear();
+      }
+    } catch (_) {}
+
+    leitor = null;
+    cameraAtiva = false;
+    cameraBox.style.display = 'none';
+    btnFechar.style.display = 'none';
+    btnCamera.disabled = false;
+  }
+
+  function validar(valor) {
+    if (!dadosBasicosOk()) {
+      processando = false;
+      return;
+    }
+
+    const cod = String(valor || '').trim().toUpperCase();
+
+    if (!/^ERA2026-\d{4,}$/.test(cod)) {
+      mostrarErro('QR Code inválido para este evento.');
+      processando = false;
+      return;
+    }
+
+    btnManual.disabled = true;
+    btnCamera.disabled = true;
+    btnManual.textContent = 'VALIDANDO...';
+
+    chamarBackend({
+      acao: 'credenciar',
+      codigo: cod,
+      periodo: periodo.value,
+      operador: operador.value.trim()
+    })
+    .then((resposta) => {
+      mostrarResultado(resposta);
+      codigo.value = '';
+    })
+    .catch((erro) => {
+      mostrarErro(erro.message || 'Erro na comunicação com o sistema.');
+    })
+    .finally(() => {
+      processando = false;
+      btnManual.disabled = false;
+      btnCamera.disabled = false;
+      btnManual.textContent = 'VALIDAR ENTRADA';
+    });
+  }
+
+  function chamarBackend(params) {
+    return new Promise((resolve, reject) => {
+      const callback = '__feemt_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      const script = document.createElement('script');
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('O servidor demorou para responder.'));
+      }, 15000);
+
+      function cleanup() {
+        clearTimeout(timeout);
+        try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[callback] = function(data) {
+        cleanup();
+        resolve(data);
+      };
+
+      script.onerror = function() {
+        cleanup();
+        reject(new Error('Não foi possível conectar ao sistema de credenciamento.'));
+      };
+
+      const query = new URLSearchParams({
+        ...params,
+        callback
+      });
+
+      script.src = BACKEND_URL + '?' + query.toString();
+      document.body.appendChild(script);
+    });
+  }
+
+  function mostrarResultado(r) {
+    resultado.className = '';
+    resultado.style.display = 'block';
+    resultadoNome.textContent = r.nome || '';
+    resultadoCodigo.textContent = r.codigo || '';
+    resultadoDetalhe.textContent = '';
+
+    if (r.sucesso === true) {
+      resultado.classList.add('liberada');
+      resultadoTitulo.textContent = '✅ ENTRADA LIBERADA';
+      resultadoDetalhe.textContent = 'Entrada registrada com sucesso.';
+      vibrar([120]);
+      return;
+    }
+
+    if (r.resultado === 'ENTRADA JÁ REGISTRADA') {
+      resultado.classList.add('bloqueada');
+      resultadoTitulo.textContent = '⛔ ENTRADA JÁ REGISTRADA';
+      resultadoDetalhe.textContent = 'Este QR Code já foi utilizado neste período. NÃO LIBERAR NOVA ENTRADA.';
+      vibrar([250, 120, 250]);
+      return;
+    }
+
+    if (r.resultado === 'INSCRIÇÃO NÃO CONFIRMADA') {
+      resultado.classList.add('bloqueada');
+      resultadoTitulo.textContent = '⛔ INSCRIÇÃO NÃO CONFIRMADA';
+      resultadoDetalhe.textContent = 'Não liberar a entrada.';
+      vibrar([250, 120, 250]);
+      return;
+    }
+
+    if (r.resultado === 'PARTICIPANTE NÃO INSCRITO PARA ESTE PERÍODO') {
+      resultado.classList.add('alerta');
+      resultadoTitulo.textContent = '⚠️ PERÍODO NÃO SELECIONADO';
+      resultadoDetalhe.textContent = 'O participante não informou participação neste período.';
+      vibrar([180, 100, 180]);
+      return;
+    }
+
+    if (r.resultado === 'CÓDIGO NÃO ENCONTRADO') {
+      resultado.classList.add('bloqueada');
+      resultadoTitulo.textContent = '⛔ CÓDIGO NÃO ENCONTRADO';
+      resultadoDetalhe.textContent = 'Não liberar a entrada.';
+      vibrar([250, 120, 250]);
+      return;
+    }
+
+    resultado.classList.add('bloqueada');
+    resultadoTitulo.textContent = '⛔ ' + (r.resultado || 'ENTRADA NÃO AUTORIZADA');
+    resultadoDetalhe.textContent = r.mensagem || '';
+    vibrar([250, 120, 250]);
+  }
+
+  function mostrarErro(msg) {
+    resultado.className = 'bloqueada';
+    resultado.style.display = 'block';
+    resultadoTitulo.textContent = '⛔ ERRO';
+    resultadoNome.textContent = '';
+    resultadoCodigo.textContent = '';
+    resultadoDetalhe.textContent = msg || 'Erro inesperado.';
+  }
+
+  function vibrar(padrao) {
+    if (navigator.vibrate) {
+      navigator.vibrate(padrao);
+    }
+  }
+</script>
+</body>
+</html>
